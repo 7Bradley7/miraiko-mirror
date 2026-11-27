@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/* Miraiko design tokens (Figma: "Miraiko — Maquette finale", page Design system) */
+:root {
+  --night: #0a0d1f;
+  --surface: #12162e;
+  --line: #2a2f55;
+  --text: #eef0fa;
+  --muted: #a3a8cb;
+  --subtle: #6b7198;
+  --red: #ff3b3b;
+  --red-hi: #ff6767;
+  --amber: #ffb000;
+  --mint: #7cf2c0;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-night: var(--night);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-red: var(--red);
+  --color-red-hi: var(--red-hi);
+  --color-amber: var(--amber);
+  --color-mint: var(--mint);
+  --font-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --font-sans: "Zen Kaku Gothic New", "Hiragino Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-kanji: "Dela Gothic One", "Zen Kaku Gothic New", sans-serif;
+  /* Ambilight background fading to a new cover (Browse page). */
+  --animate-ambient-in: ambient-in 0.9s ease-out both;
+
+  @keyframes ambient-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+body {
+  background: var(--night);
+  color: var(--text);
+  font-family: var(--font-sans);
+}

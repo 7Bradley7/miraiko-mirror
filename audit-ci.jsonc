@@ -1,0 +1,21 @@
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  // Production dependencies: fail from "high" severity upwards.
+  "high": true,
+  "skip-dev": true,
+  "allowlist": [
+    // picomatch ReDoS (no fixed version yet). Only these paths are allowed, any other path
+    // still fails. Remove them as soon as picomatch ships a fix.
+    //
+    // 1. Vitest, which Better Auth lists as an optional peer dependency: Vitest only runs the
+    //    tests and is never shipped.
+    "GHSA-fc5q-39xc-vjpf|picomatch>",
+    "GHSA-fc5q-39xc-vjpf|fdir>picomatch",
+    "GHSA-fc5q-39xc-vjpf|vite>picomatch>",
+    "GHSA-fc5q-39xc-vjpf|vitest>tinyglobby>picomatch",
+    // 2. The file watcher of next-intl's message extractor, a development tool we don't
+    //    enable: it never runs when the site answers a request, and it only matches our own
+    //    file patterns, never user input.
+    "GHSA-fc5q-39xc-vjpf|@parcel/watcher>picomatch",
+  ],
+}

@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# One run per branch: a new push cancels the previous one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, types and format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npm test
+      # Production dependencies: fail from "high" severity upwards (rules and exceptions in audit-ci.jsonc).
+      - name: Audit production dependencies
+        run: npx audit-ci --config audit-ci.jsonc
+      # Dev tooling only runs locally and in CI: fail on "critical" only.
+      - name: Audit all dependencies
+        run: npm audit --audit-level=critical
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          # Placeholder so Better Auth can load during the build; no session is ever signed with it.
+          AUTH_SECRET: ci-build-placeholder-not-a-real-secret
+
+  database:
+    name: Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Throwaway PostgreSQL: the migrations are tested here, never against Neon.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: miraiko
+          POSTGRES_PASSWORD: miraiko
+          POSTGRES_DB: miraiko
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U miraiko"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://miraiko:miraiko@localhost:5432/miraiko
+      DATABASE_URL_UNPOOLED: postgresql://miraiko:miraiko@localhost:5432/miraiko
+      SHADOW_DATABASE_URL: postgresql://miraiko:miraiko@localhost:5432/miraiko_shadow
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Create the shadow database
+        run: psql "$DATABASE_URL" -c 'CREATE DATABASE miraiko_shadow'
+      - name: Apply the migrations
+        run: npx prisma migrate deploy
+      - name: Check that the migrations match the schema
+        run: npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+      - name: Seed the test data
+        run: npm run db:seed
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GITLEAKS_VERSION: 8.24.3
+      GITLEAKS_SHA256: 9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c
+    steps:
+      # Full history: scan every commit, not just the latest one.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install Gitleaks (pinned version and checksum)
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" gitleaks
+          rm "$archive"
+      - name: Scan the Git history
+        run: ./gitleaks git . --redact --verbose --exit-code 1

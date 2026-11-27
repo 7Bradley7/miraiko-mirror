@@ -1,0 +1,72 @@
+# Dependabot: weekly dependency updates, grouped to keep the number of PRs low.
+# Security updates are opened as soon as an alert appears, outside this schedule.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    assignees:
+      - 7Bradley7
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    ignore:
+      # The site runs on Node 22 (Vercel and CI): Node types stay on the 22 line.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
+    groups:
+      # Next.js and its ESLint config must move together.
+      nextjs:
+        patterns:
+          - next
+          - "@next/*"
+          - eslint-config-next
+      # The Prisma CLI, client and adapters must share the same version.
+      prisma:
+        patterns:
+          - prisma
+          - "@prisma/*"
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      production-dependencies:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    labels:
+      - dependencies
+      - devops
+    assignees:
+      - 7Bradley7
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns:
+          - "*"
